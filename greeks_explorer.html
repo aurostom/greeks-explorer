@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Black–Scholes Greeks Explorer</title>
+
+  <!-- Plotly (CDN). For offline use, download plotly.min.js and reference it locally. -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#f8fafc;
+      --panel:#ffffff;
+      --panel2:#f1f5f9;
+      --text:#0f172a;
+      --muted:#475569;
+      --border:rgba(15,23,42,.12);
+      --shadow:rgba(2,6,23,.08);
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      --sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    body{
+      margin:0; font-family:var(--sans); color:var(--text);
+      background: radial-gradient(1000px 600px at 20% -10%, rgba(59,130,246,.12), transparent 60%),
+                  radial-gradient(900px 500px at 80% 0%, rgba(16,185,129,.10), transparent 55%),
+                  var(--bg);
+    }
+    header{
+      padding:18px 16px 10px 16px;
+      border-bottom:1px solid var(--border);
+      background:linear-gradient(to bottom, rgba(255,255,255,.92), rgba(255,255,255,.75));
+      position:sticky; top:0; z-index:2; backdrop-filter:blur(10px);
+    }
+    header h1{ margin:0 0 6px 0; font-size:18px; font-weight:800; letter-spacing:.1px; }
+    header .sub{ margin:0; color:var(--muted); font-size:13px; line-height:1.35; }
+
+    .wrap{
+      display:grid; grid-template-columns:360px 1fr; gap:14px; padding:14px;
+      max-width:1400px; margin:0 auto;
+    }
+    @media (max-width:980px){
+      .wrap{ grid-template-columns:1fr; }
+      header{ position:relative; }
+    }
+
+    .panel{
+      background:rgba(255,255,255,.92);
+      border:1px solid var(--border);
+      border-radius:12px;
+      box-shadow:0 10px 24px var(--shadow);
+      overflow:hidden;
+    }
+    .panel .head{
+      padding:12px 12px 10px 12px;
+      border-bottom:1px solid var(--border);
+      background:rgba(241,245,249,.95);
+    }
+    .panel .head h2{
+      margin:0; font-size:12px; color:#334155; font-weight:800;
+      letter-spacing:.35px; text-transform:uppercase;
+    }
+    .panel .body{ padding:12px; }
+
+    .control{
+      display:grid; grid-template-columns:1fr 98px;
+      gap:10px; align-items:center; margin-bottom:12px;
+    }
+    .control label{ display:block; font-size:13px; margin-bottom:4px; }
+    .control .hint{ font-size:11px; color:var(--muted); margin-top:2px; }
+
+    input[type="range"]{ width:100%; }
+    input[type="number"]{
+      width:98px; padding:7px 8px;
+      border-radius:10px; border:1px solid var(--border);
+      background:rgba(248,250,252,.95);
+      color:var(--text);
+      font-family:var(--mono); font-size:12px; outline:none;
+    }
+
+    .row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:10px 0 4px 0; }
+    .chip{
+      border:1px solid var(--border);
+      background:rgba(248,250,252,.95);
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      color:#0f172a;
+      display:inline-flex; gap:8px; align-items:center;
+      user-select:none;
+    }
+    .chip input{ transform:translateY(1px); }
+
+    .divider{ height:1px; background:var(--border); margin:12px 0; }
+
+    .readout{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .metric{
+      border:1px solid var(--border);
+      background:rgba(248,250,252,.95);
+      border-radius:12px;
+      padding:10px 10px 9px 10px;
+    }
+    .metric .k{
+      font-size:11px; color:var(--muted); margin-bottom:6px;
+      letter-spacing:.25px; text-transform:uppercase;
+    }
+    .metric .v{ font-family:var(--mono); font-size:13px; }
+
+    .plots{
+      display:grid; grid-template-columns:1fr; gap:12px; padding:12px;
+    }
+    .plotbox{
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.92);
+      border-radius:12px;
+      padding:8px;
+    }
+    .note{ font-size:12px; color:var(--muted); line-height:1.45; }
+    .note code{ font-family:var(--mono); font-size:11px; color:#0f172a; }
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>Black–Scholes Greeks Explorer</h1>
+  <p class="sub">
+    Curves of <b>Δ (delta), Γ (gamma), Θ (theta), ν (vega), ρ (rho)</b> vs underlying price <b>S</b>.  </p>
+</header>
+
+<div class="wrap">
+  <!-- Controls -->
+  <section class="panel">
+    <div class="head"><h2>Parameters</h2></div>
+    <div class="body">
+
+      <div class="control">
+        <div>
+          <label for="spot">Spot (S₀)</label>
+          <input id="spot" type="range" min="1" max="500" step="0.5" value="100">
+          <div class="hint">Moves the vertical spot marker; x-axis stays fixed.</div>
+        </div>
+        <input id="spotN" type="number" min="0.01" step="0.01" value="100">
+      </div>
+
+      <div class="control">
+        <div>
+          <label for="strike">Strike (K)</label>
+          <input id="strike" type="range" min="1" max="500" step="0.5" value="100">
+          <div class="hint">European option (Black–Scholes).</div>
+        </div>
+        <input id="strikeN" type="number" min="0.01" step="0.01" value="100">
+      </div>
+
+      <div class="control">
+        <div>
+          <label for="days">Time to expiry (days)</label>
+          <input id="days" type="range" min="0.1" max="730" step="0.1" value="30">
+          <div class="hint">Decimal allowed (step 0.1). Converted to years as T = days / 365.</div>
+        </div>
+        <input id="daysN" type="number" min="0.1" step="0.1" value="30">
+      </div>
+
+      <div class="control">
+        <div>
+          <label for="vol">Implied volatility (σ, %)</label>
+          <input id="vol" type="range" min="1" max="200" step="0.1" value="30">
+          <div class="hint">Black–Scholes assumes constant volatility.</div>
+        </div>
+        <input id="volN" type="number" min="0.01" step="0.01" value="30">
+      </div>
+
+      <div class="control">
+        <div>
+          <label for="rate">Risk-free rate (r, %)</label>
+          <input id="rate" type="range" min="-5" max="15" step="0.01" value="4">
+          <div class="hint">Continuously compounded.</div>
+        </div>
+        <input id="rateN" type="number" step="0.01" value="4">
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row">
+        <span class="chip"><input id="showCall" type="checkbox" checked> Call</span>
+        <span class="chip"><input id="showPut" type="checkbox"> Put</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="head" style="border-radius:10px; border:1px solid var(--border);">
+        <h2>Greeks at current spot (S₀)</h2>
+      </div>
+      <div style="height:10px;"></div>
+
+      <div class="readout">
+        <div class="metric"><div class="k">Delta</div><div class="v" id="mDelta">—</div></div>
+        <div class="metric"><div class="k">Gamma</div><div class="v" id="mGamma">—</div></div>
+        <div class="metric"><div class="k">Theta (per day)</div><div class="v" id="mTheta">—</div></div>
+        <div class="metric"><div class="k">Vega (per 1% vol)</div><div class="v" id="mVega">—</div></div>
+        <div class="metric"><div class="k">Rho (per 1% rate)</div><div class="v" id="mRho">—</div></div>
+      </div>
+
+      <div style="height:12px;"></div>
+      <p class="note">
+        Notes:
+        <br>• Model: Black–Scholes–Merton European option with <code>q = 0</code> (no dividend yield).
+        <br>• Unit conventions: Θ shown <b>per day</b>; ν and ρ shown <b>per 1% change</b> in σ and r.
+        <br>• Axes are fixed: Δ ∈ [-1,1], Γ ∈ [0,0.5], Θ/day ∈ [-20,10], ν/1% ∈ [0,3], ρ/1% ∈ [-12,12].
+      </p>
+
+    </div>
+  </section>
+
+  <!-- Plots -->
+  <section class="panel">
+    <div class="head"><h2>Greeks vs Underlying Price</h2></div>
+    <div class="plots">
+      <div class="plotbox"><div id="chartDelta" style="height:260px;"></div></div>
+      <div class="plotbox"><div id="chartGamma" style="height:260px;"></div></div>
+      <div class="plotbox"><div id="chartTheta" style="height:260px;"></div></div>
+      <div class="plotbox"><div id="chartVega" style="height:260px;"></div></div>
+      <div class="plotbox"><div id="chartRho" style="height:260px;"></div></div>
+    </div>
+  </section>
+</div>
+
+<script>
+  const S_GRID_MIN = 1;
+  const S_GRID_MAX = 500;
+  const N_PTS = 401; // fixed resolution (no UI)
+
+  const YR = {
+    delta: [-1.05,  1.05],
+    gamma: [ 0.00,  0.50],
+    theta: [-20.0, 10.0], // per day
+    vega:  [ 0.00,  3.00], // per 1% vol
+    rho:   [-12.0, 12.0]   // per 1% rate
+  };
+
+  const COLORS = {
+    text: "#0f172a",
+    grid: "rgba(15,23,42,.10)",
+    line: "#0f172a"
+  };
+
+  // ---------------- Math helpers (no deps) -----------------------------------
+  function erf(x) {
+    const sign = (x >= 0) ? 1 : -1;
+    x = Math.abs(x);
+    const a1 =  0.254829592, a2 = -0.284496736, a3 =  1.421413741,
+          a4 = -1.453152027, a5 =  1.061405429, p  =  0.3275911;
+    const t = 1.0 / (1.0 + p*x);
+    const y = 1.0 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t*Math.exp(-x*x);
+    return sign*y;
+  }
+  function normCDF(x) { return 0.5 * (1 + erf(x / Math.SQRT2)); }
+  function normPDF(x) { return Math.exp(-0.5*x*x) / Math.sqrt(2*Math.PI); }
+
+  // ---------------- Black–Scholes greeks (q = 0) -----------------------------
+  function bsGreeks(S, K, T, sigma, r) {
+    const sqrtT = Math.sqrt(T);
+    const d1 = (Math.log(S / K) + (r + 0.5*sigma*sigma)*T) / (sigma*sqrtT);
+    const d2 = d1 - sigma*sqrtT;
+
+    const Nd1 = normCDF(d1), Nd2 = normCDF(d2);
+    const Nmd2 = normCDF(-d2);
+    const nd1 = normPDF(d1);
+
+    const discR = Math.exp(-r*T);
+
+    // Delta
+    const callDelta = Nd1;
+    const putDelta  = Nd1 - 1;
+
+    // Gamma
+    const gamma = nd1 / (S * sigma * sqrtT);
+
+    // Vega (per 1.0 vol)
+    const vega = S * nd1 * sqrtT;
+
+    // Theta (per year)
+    const firstTerm = -(S * nd1 * sigma) / (2*sqrtT);
+    const callTheta = firstTerm - r*K*discR*Nd2;
+    const putTheta  = firstTerm + r*K*discR*Nmd2;
+
+    // Rho (per 1.0 rate)
+    const callRho = K * T * discR * Nd2;
+    const putRho  = -K * T * discR * Nmd2;
+
+    return {
+      call: { delta: callDelta, gamma, theta: callTheta, vega, rho: callRho },
+      put:  { delta: putDelta,  gamma, theta: putTheta,  vega, rho: putRho  }
+    };
+  }
+
+  // ---------------- UI wiring -----------------------------------------------
+  function $(id) { return document.getElementById(id); }
+
+  const controls = {
+    spot:   { s: $("spot"),   n: $("spotN") },
+    strike: { s: $("strike"), n: $("strikeN") },
+    days:   { s: $("days"),   n: $("daysN") },
+    vol:    { s: $("vol"),    n: $("volN") },
+    rate:   { s: $("rate"),   n: $("rateN") }
+  };
+
+  const toggles = {
+    showCall: $("showCall"),
+    showPut: $("showPut")
+  };
+
+  function bindPair(key) {
+    const slider = controls[key].s;
+    const number = controls[key].n;
+
+    function syncFromSlider() {
+      number.value = slider.value;
+      updateAll();
+    }
+    function syncFromNumber() {
+      const v = parseFloat(number.value);
+      if (!Number.isFinite(v)) return;
+      const min = parseFloat(slider.min), max = parseFloat(slider.max);
+      const clamped = Math.max(min, Math.min(max, v));
+      slider.value = clamped;
+      number.value = clamped;
+      updateAll();
+    }
+
+    slider.addEventListener("input", syncFromSlider);
+    number.addEventListener("change", syncFromNumber);
+    number.addEventListener("keyup", (e) => { if (e.key === "Enter") syncFromNumber(); });
+  }
+  Object.keys(controls).forEach(bindPair);
+
+  Object.values(toggles).forEach(t => t.addEventListener("change", () => {
+    if (!toggles.showCall.checked && !toggles.showPut.checked) toggles.showCall.checked = true;
+    updateAll();
+  }));
+
+  // ---------------- Plot helpers --------------------------------------------
+  function linspace(a, b, n) {
+    const arr = new Array(n);
+    const step = (b - a) / (n - 1);
+    for (let i=0; i<n; i++) arr[i] = a + step*i;
+    return arr;
+  }
+
+  function baseLayout(title, yTitle, yRange, showXLabels) {
+    return {
+      title: { text: title, font: { size: 14, color: COLORS.text } },
+      margin: { l: 58, r: 18, t: 40, b: showXLabels ? 44 : 28 },
+      paper_bgcolor: "rgba(255,255,255,0)",
+      plot_bgcolor: "rgba(255,255,255,0)",
+      font: { color: COLORS.text },
+      xaxis: {
+        range: [S_GRID_MIN, S_GRID_MAX],
+        autorange: false,
+        fixedrange: true,
+        title: showXLabels ? { text: "Underlying price S" } : undefined,
+        showgrid: true,
+        gridcolor: COLORS.grid,
+        zeroline: false,
+        tickfont: { size: 11, color: COLORS.text }
+      },
+      yaxis: {
+        range: yRange,
+        autorange: false,
+        fixedrange: true,
+        title: { text: yTitle },
+        showgrid: true,
+        gridcolor: COLORS.grid,
+        zeroline: true,
+        zerolinecolor: COLORS.grid,
+        tickfont: { size: 11, color: COLORS.text }
+      },
+      legend: { orientation: "h", x: 0, y: 1.15, font: { size: 11, color: COLORS.text } },
+      hovermode: "x"
+    };
+  }
+
+  function markerLines(S0, K) {
+    return [
+      {
+        type: "line",
+        xref: "x", yref: "paper",
+        x0: S0, x1: S0, y0: 0, y1: 1,
+        line: { width: 1, dash: "dot", color: COLORS.line }
+      },
+      {
+        type: "line",
+        xref: "x", yref: "paper",
+        x0: K, x1: K, y0: 0, y1: 1,
+        line: { width: 1, dash: "dash", color: COLORS.line }
+      }
+    ];
+  }
+
+  function fmt(x) {
+    if (!Number.isFinite(x)) return "NaN";
+    const ax = Math.abs(x);
+    if (ax === 0) return "0";
+    if (ax < 1e-5 || ax >= 1e6) return x.toExponential(6);
+    return x.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
+  }
+
+  function toDisplayUnits(g) {
+    return {
+      delta: g.delta,
+      gamma: g.gamma,
+      theta: g.theta / 365.0, // per day
+      vega:  g.vega  * 0.01,  // per 1% vol
+      rho:   g.rho   * 0.01   // per 1% rate
+    };
+  }
+
+  function makeTraces(x, yCall, yPut, name) {
+    const traces = [];
+    if (toggles.showCall.checked) {
+      traces.push({
+        x, y: yCall, type: "scatter", mode: "lines", name: "Call",
+        hovertemplate: `${name} (Call): %{y:.8g}<extra></extra>`
+      });
+    }
+    if (toggles.showPut.checked) {
+      traces.push({
+        x, y: yPut, type: "scatter", mode: "lines", name: "Put",
+        hovertemplate: `${name} (Put): %{y:.8g}<extra></extra>`
+      });
+    }
+    return traces;
+  }
+
+  // ---------------- Initialize plots ----------------------------------------
+  const cfg = { responsive: true, displayModeBar: true };
+
+  function initPlots() {
+    Plotly.newPlot("chartDelta", [], baseLayout("Delta (Δ)", "Δ", YR.delta, false), cfg);
+    Plotly.newPlot("chartGamma", [], baseLayout("Gamma (Γ)", "Γ", YR.gamma, false), cfg);
+    Plotly.newPlot("chartTheta", [], baseLayout("Theta (Θ)", "Θ per day", YR.theta, false), cfg);
+    Plotly.newPlot("chartVega",  [], baseLayout("Vega (ν)",  "ν per 1% vol", YR.vega, false), cfg);
+    Plotly.newPlot("chartRho",   [], baseLayout("Rho (ρ)",   "ρ per 1% rate", YR.rho, true), cfg);
+  }
+
+  // ---------------- Main update ---------------------------------------------
+  const x = linspace(S_GRID_MIN, S_GRID_MAX, N_PTS);
+
+  function readParams() {
+    const S0 = parseFloat(controls.spot.n.value);
+    const K  = parseFloat(controls.strike.n.value);
+    const days = parseFloat(controls.days.n.value);
+    const volPct = parseFloat(controls.vol.n.value);
+    const rPct = parseFloat(controls.rate.n.value);
+
+    const T = Math.max(days / 365.0, 1e-8);
+    const sigma = Math.max(volPct / 100.0, 1e-8);
+    const r = rPct / 100.0;
+
+    return { S0, K, T, sigma, r };
+  }
+
+  function updateReadout(S0, K, T, sigma, r) {
+    const { call, put } = bsGreeks(Math.max(S0, 0.01), Math.max(K,0.01), T, sigma, r);
+    const c = toDisplayUnits(call);
+    const p = toDisplayUnits(put);
+
+    const useCall = toggles.showCall.checked;
+    const usePut = toggles.showPut.checked;
+
+    if (useCall && usePut) {
+      $("mDelta").textContent = `${fmt(c.delta)} (call) / ${fmt(p.delta)} (put)`;
+      $("mGamma").textContent = fmt(c.gamma);
+      $("mTheta").textContent = `${fmt(c.theta)} (call) / ${fmt(p.theta)} (put)`;
+      $("mVega").textContent  = fmt(c.vega);
+      $("mRho").textContent   = `${fmt(c.rho)} (call) / ${fmt(p.rho)} (put)`;
+      return;
+    }
+
+    const g = usePut ? p : c;
+    $("mDelta").textContent = fmt(g.delta);
+    $("mGamma").textContent = fmt(g.gamma);
+    $("mTheta").textContent = fmt(g.theta);
+    $("mVega").textContent  = fmt(g.vega);
+    $("mRho").textContent   = fmt(g.rho);
+  }
+
+  function updateAll() {
+    const { S0, K, T, sigma, r } = readParams();
+
+    const dCall = [], dPut = [];
+    const gCall = [], gPut = [];
+    const tCall = [], tPut = [];
+    const vCall = [], vPut = [];
+    const rCall = [], rPut = [];
+
+    for (let i=0; i<x.length; i++) {
+      const S = Math.max(x[i], 0.01);
+      const G = bsGreeks(S, Math.max(K,0.01), T, sigma, r);
+
+      const c = toDisplayUnits(G.call);
+      const p = toDisplayUnits(G.put);
+
+      dCall.push(c.delta); dPut.push(p.delta);
+      gCall.push(c.gamma); gPut.push(p.gamma);
+      tCall.push(c.theta); tPut.push(p.theta);
+      vCall.push(c.vega);  vPut.push(p.vega);
+      rCall.push(c.rho);   rPut.push(p.rho);
+    }
+
+    updateReadout(S0, K, T, sigma, r);
+
+    const shapes = markerLines(S0, K);
+
+    Plotly.react("chartDelta", makeTraces(x, dCall, dPut, "Δ"), { ...baseLayout("Delta (Δ)", "Δ", YR.delta, false), shapes });
+    Plotly.react("chartGamma", makeTraces(x, gCall, gPut, "Γ"), { ...baseLayout("Gamma (Γ)", "Γ", YR.gamma, false), shapes });
+    Plotly.react("chartTheta", makeTraces(x, tCall, tPut, "Θ"), { ...baseLayout("Theta (Θ)", "Θ per day", YR.theta, false), shapes });
+    Plotly.react("chartVega",  makeTraces(x, vCall, vPut, "ν"), { ...baseLayout("Vega (ν)", "ν per 1% vol", YR.vega, false), shapes });
+    Plotly.react("chartRho",   makeTraces(x, rCall, rPut, "ρ"), { ...baseLayout("Rho (ρ)", "ρ per 1% rate", YR.rho, true), shapes });
+  }
+
+  initPlots();
+  updateAll();
+</script>
+</body>
+</html>
