@@ -110,6 +110,12 @@
     .plots{
       display:grid; grid-template-columns:1fr; gap:12px; padding:12px;
     }
+    .plots-split{
+      display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px;
+    }
+    @media (max-width:980px){
+      .plots-split{ grid-template-columns:1fr; }
+    }
     .plotbox{
       border:1px solid var(--border);
       background:rgba(255,255,255,.92);
@@ -137,19 +143,19 @@
       <div class="control">
         <div>
           <label for="spot">Spot (S₀)</label>
-          <input id="spot" type="range" min="1" max="500" step="0.5" value="100">
+          <input id="spot" type="range" min="0" max="100" step="0.5" value="50">
           <div class="hint">Moves the vertical spot marker; x-axis stays fixed.</div>
         </div>
-        <input id="spotN" type="number" min="0.01" step="0.01" value="100">
+        <input id="spotN" type="number" min="0" step="0.01" value="50">
       </div>
 
       <div class="control">
         <div>
           <label for="strike">Strike (K)</label>
-          <input id="strike" type="range" min="1" max="500" step="0.5" value="100">
+          <input id="strike" type="range" min="0" max="100" step="0.5" value="50">
           <div class="hint">European option (Black–Scholes).</div>
         </div>
-        <input id="strikeN" type="number" min="0.01" step="0.01" value="100">
+        <input id="strikeN" type="number" min="0" step="0.01" value="50">
       </div>
 
       <div class="control">
@@ -199,6 +205,7 @@
         <div class="metric"><div class="k">Theta (per day)</div><div class="v" id="mTheta">—</div></div>
         <div class="metric"><div class="k">Vega (per 1% vol)</div><div class="v" id="mVega">—</div></div>
         <div class="metric"><div class="k">Rho (per 1% rate)</div><div class="v" id="mRho">—</div></div>
+        <div class="metric"><div class="k">Value</div><div class="v" id="mValue">—</div></div>
       </div>
 
       <div style="height:12px;"></div>
@@ -206,7 +213,7 @@
         Notes:
         <br>• Model: Black–Scholes–Merton European option with <code>q = 0</code> (no dividend yield).
         <br>• Unit conventions: Θ shown <b>per day</b>; ν and ρ shown <b>per 1% change</b> in σ and r.
-        <br>• Axes are fixed: Δ ∈ [-1,1], Γ ∈ [0,0.5], Θ/day ∈ [-20,10], ν/1% ∈ [0,3], ρ/1% ∈ [-12,12].
+        <br>• Axes are fixed: Δ ∈ [-1,1], Γ ∈ [0,1], Θ/day ∈ [-0.5,0.5], ν/1% ∈ [0,1], ρ/1% ∈ [-5,5], Value ∈ [0,10].
       </p>
 
     </div>
@@ -222,26 +229,36 @@
       <div class="plotbox"><div id="chartVega" style="height:260px;"></div></div>
       <div class="plotbox"><div id="chartRho" style="height:260px;"></div></div>
     </div>
+    <div class="head"><h2>Value</h2></div>
+    <div class="plots-split">
+      <div class="plotbox"><div id="chartValue" style="height:260px;"></div></div>
+      <div class="plotbox"><div id="chartValueTime" style="height:260px;"></div></div>
+    </div>
   </section>
 </div>
 
 <script>
-  const S_GRID_MIN = 1;
-  const S_GRID_MAX = 500;
-  const N_PTS = 401; // fixed resolution (no UI)
+  const S_GRID_MIN = 0;
+  const S_GRID_MAX = 100;
+  const S_CALC_MIN = 0;
+  const S_CALC_MAX = 200;
+  const N_PTS = 2001; // Calculate from 0 to 10000 for zooming
 
   const YR = {
-    delta: [-1.05,  1.05],
-    gamma: [ 0.00,  0.50],
-    theta: [-20.0, 10.0], // per day
-    vega:  [ 0.00,  3.00], // per 1% vol
-    rho:   [-12.0, 12.0]   // per 1% rate
+    delta: [-1.0,  1.0],
+    gamma: [ 0.0,  1.0],
+    theta: [-0.5,  0.5], // per day
+    vega:  [ 0.0,  1.0], // per 1% vol
+    rho:   [-5.0,  5.0], // per 1% rate
+    value: [ 0.0, 10.0]  // option value
   };
 
   const COLORS = {
     text: "#0f172a",
     grid: "rgba(15,23,42,.10)",
-    line: "#0f172a"
+    line: "#0f172a",
+    callTrace: "#2563eb",
+    putTrace: "#dc2626"
   };
 
   // ---------------- Math helpers (no deps) -----------------------------------
@@ -264,7 +281,7 @@
     const d2 = d1 - sigma*sqrtT;
 
     const Nd1 = normCDF(d1), Nd2 = normCDF(d2);
-    const Nmd2 = normCDF(-d2);
+    const Nmd1 = normCDF(-d1), Nmd2 = normCDF(-d2);
     const nd1 = normPDF(d1);
 
     const discR = Math.exp(-r*T);
@@ -288,9 +305,13 @@
     const callRho = K * T * discR * Nd2;
     const putRho  = -K * T * discR * Nmd2;
 
+    // Option Value
+    const callValue = S * Nd1 - K * discR * Nd2;
+    const putValue  = K * discR * Nmd2 - S * Nmd1;
+
     return {
-      call: { delta: callDelta, gamma, theta: callTheta, vega, rho: callRho },
-      put:  { delta: putDelta,  gamma, theta: putTheta,  vega, rho: putRho  }
+      call: { delta: callDelta, gamma, theta: callTheta, vega, rho: callRho, value: callValue },
+      put:  { delta: putDelta,  gamma, theta: putTheta,  vega, rho: putRho,  value: putValue  }
     };
   }
 
@@ -357,11 +378,13 @@
       xaxis: {
         range: [S_GRID_MIN, S_GRID_MAX],
         autorange: false,
-        fixedrange: true,
+        fixedrange: false, // Allow zooming to see full 0-10000 range
         title: showXLabels ? { text: "Underlying price S" } : undefined,
         showgrid: true,
         gridcolor: COLORS.grid,
-        zeroline: false,
+        zeroline: true,
+        zerolinecolor: COLORS.grid,
+        zerolinewidth: 1,
         tickfont: { size: 11, color: COLORS.text }
       },
       yaxis: {
@@ -377,6 +400,15 @@
       },
       legend: { orientation: "h", x: 0, y: 1.15, font: { size: 11, color: COLORS.text } },
       hovermode: "x"
+    };
+  }
+
+  function xAxisLine() {
+    return {
+      type: "line",
+      xref: "paper", yref: "y",
+      x0: 0, x1: 1, y0: 0, y1: 0,
+      line: { width: 1, color: COLORS.grid }
     };
   }
 
@@ -411,7 +443,8 @@
       gamma: g.gamma,
       theta: g.theta / 365.0, // per day
       vega:  g.vega  * 0.01,  // per 1% vol
-      rho:   g.rho   * 0.01   // per 1% rate
+      rho:   g.rho   * 0.01,  // per 1% rate
+      value: g.value
     };
   }
 
@@ -420,12 +453,14 @@
     if (toggles.showCall.checked) {
       traces.push({
         x, y: yCall, type: "scatter", mode: "lines", name: "Call",
+        line: { color: COLORS.callTrace, width: 2 },
         hovertemplate: `${name} (Call): %{y:.8g}<extra></extra>`
       });
     }
     if (toggles.showPut.checked) {
       traces.push({
         x, y: yPut, type: "scatter", mode: "lines", name: "Put",
+        line: { color: COLORS.putTrace, width: 2 },
         hovertemplate: `${name} (Put): %{y:.8g}<extra></extra>`
       });
     }
@@ -440,11 +475,17 @@
     Plotly.newPlot("chartGamma", [], baseLayout("Gamma (Γ)", "Γ", YR.gamma, false), cfg);
     Plotly.newPlot("chartTheta", [], baseLayout("Theta (Θ)", "Θ per day", YR.theta, false), cfg);
     Plotly.newPlot("chartVega",  [], baseLayout("Vega (ν)",  "ν per 1% vol", YR.vega, false), cfg);
-    Plotly.newPlot("chartRho",   [], baseLayout("Rho (ρ)",   "ρ per 1% rate", YR.rho, true), cfg);
+    Plotly.newPlot("chartRho",   [], baseLayout("Rho (ρ)",   "ρ per 1% rate", YR.rho, false), cfg);
+    Plotly.newPlot("chartValue", [], baseLayout("Value vs Underlying", "Value", YR.value, false), cfg);
+    const timeLayout = baseLayout("Value vs Time to Expiry", "Value", YR.value, true);
+    timeLayout.xaxis.title = { text: "Time to expiry (days)" };
+    timeLayout.xaxis.range = [0, 730];
+    Plotly.newPlot("chartValueTime", [], timeLayout, cfg);
   }
 
   // ---------------- Main update ---------------------------------------------
-  const x = linspace(S_GRID_MIN, S_GRID_MAX, N_PTS);
+  // Calculate data from 0 to 10000 for zooming, but display 0 to 100
+  const x = linspace(S_CALC_MIN, S_CALC_MAX, N_PTS);
 
   function readParams() {
     const S0 = parseFloat(controls.spot.n.value);
@@ -474,6 +515,7 @@
       $("mTheta").textContent = `${fmt(c.theta)} (call) / ${fmt(p.theta)} (put)`;
       $("mVega").textContent  = fmt(c.vega);
       $("mRho").textContent   = `${fmt(c.rho)} (call) / ${fmt(p.rho)} (put)`;
+      $("mValue").textContent = `${fmt(c.value)} (call) / ${fmt(p.value)} (put)`;
       return;
     }
 
@@ -483,16 +525,19 @@
     $("mTheta").textContent = fmt(g.theta);
     $("mVega").textContent  = fmt(g.vega);
     $("mRho").textContent   = fmt(g.rho);
+    $("mValue").textContent = fmt(g.value);
   }
 
   function updateAll() {
     const { S0, K, T, sigma, r } = readParams();
+    const days = parseFloat(controls.days.n.value);
 
     const dCall = [], dPut = [];
     const gCall = [], gPut = [];
     const tCall = [], tPut = [];
     const vCall = [], vPut = [];
     const rCall = [], rPut = [];
+    const valCall = [], valPut = [];
 
     for (let i=0; i<x.length; i++) {
       const S = Math.max(x[i], 0.01);
@@ -506,17 +551,41 @@
       tCall.push(c.theta); tPut.push(p.theta);
       vCall.push(c.vega);  vPut.push(p.vega);
       rCall.push(c.rho);   rPut.push(p.rho);
+      valCall.push(c.value); valPut.push(p.value);
+    }
+
+    // Calculate value vs time to expiry (limited to slider value)
+    const timeDays = linspace(0.1, days, Math.max(100, Math.floor(days * 2)));
+    const valTimeCall = [], valTimePut = [];
+    for (let i=0; i<timeDays.length; i++) {
+      const daysVal = timeDays[i];
+      const TVal = Math.max(daysVal / 365.0, 1e-8);
+      const G = bsGreeks(Math.max(S0, 0.01), Math.max(K,0.01), TVal, sigma, r);
+      valTimeCall.push(G.call.value);
+      valTimePut.push(G.put.value);
     }
 
     updateReadout(S0, K, T, sigma, r);
 
-    const shapes = markerLines(S0, K);
+    const shapes = [xAxisLine(), ...markerLines(S0, K)];
+    const timeShapes = [{
+      type: "line",
+      xref: "x", yref: "paper",
+      x0: days, x1: days, y0: 0, y1: 1,
+      line: { width: 1, dash: "dot", color: COLORS.line }
+    }, xAxisLine()];
 
     Plotly.react("chartDelta", makeTraces(x, dCall, dPut, "Δ"), { ...baseLayout("Delta (Δ)", "Δ", YR.delta, false), shapes });
     Plotly.react("chartGamma", makeTraces(x, gCall, gPut, "Γ"), { ...baseLayout("Gamma (Γ)", "Γ", YR.gamma, false), shapes });
     Plotly.react("chartTheta", makeTraces(x, tCall, tPut, "Θ"), { ...baseLayout("Theta (Θ)", "Θ per day", YR.theta, false), shapes });
     Plotly.react("chartVega",  makeTraces(x, vCall, vPut, "ν"), { ...baseLayout("Vega (ν)", "ν per 1% vol", YR.vega, false), shapes });
-    Plotly.react("chartRho",   makeTraces(x, rCall, rPut, "ρ"), { ...baseLayout("Rho (ρ)", "ρ per 1% rate", YR.rho, true), shapes });
+    Plotly.react("chartRho",   makeTraces(x, rCall, rPut, "ρ"), { ...baseLayout("Rho (ρ)", "ρ per 1% rate", YR.rho, false), shapes });
+    Plotly.react("chartValue", makeTraces(x, valCall, valPut, "Value"), { ...baseLayout("Value vs Underlying", "Value", YR.value, false), shapes });
+    const timeLayoutUpdate = baseLayout("Value vs Time to Expiry", "Value", YR.value, true);
+    timeLayoutUpdate.xaxis.title = { text: "Time to expiry (days)" };
+    timeLayoutUpdate.xaxis.range = [0, days];
+    timeLayoutUpdate.shapes = timeShapes;
+    Plotly.react("chartValueTime", makeTraces(timeDays, valTimeCall, valTimePut, "Value"), timeLayoutUpdate);
   }
 
   initPlots();
