@@ -1,595 +1,1202 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Black–Scholes Greeks Explorer</title>
-
-  <!-- Plotly (CDN). For offline use, download plotly.min.js and reference it locally. -->
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Options Greeks Explorer (Black–Scholes)</title>
   <style>
     :root{
-      --bg:#f8fafc;
-      --panel:#ffffff;
-      --panel2:#f1f5f9;
-      --text:#0f172a;
-      --muted:#475569;
-      --border:rgba(15,23,42,.12);
-      --shadow:rgba(2,6,23,.08);
-      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-      --sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+      --bg:#0b1220;
+      --panel:#0f1b33;
+      --text:#e7eefc;
+      --muted:#a9b7d3;
+      --line:rgba(255,255,255,.10);
+      --accent:#7aa2ff;   /* Call */
+      --accent2:#ffb86b;  /* Put */
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
     }
-
+    *{box-sizing:border-box}
     body{
-      margin:0; font-family:var(--sans); color:var(--text);
-      background: radial-gradient(1000px 600px at 20% -10%, rgba(59,130,246,.12), transparent 60%),
-                  radial-gradient(900px 500px at 80% 0%, rgba(16,185,129,.10), transparent 55%),
+      margin:0;
+      background: radial-gradient(1200px 600px at 10% 0%, #13234a 0%, rgba(19,35,74,0) 60%),
+                  radial-gradient(900px 500px at 100% 20%, #2a1a44 0%, rgba(42,26,68,0) 55%),
                   var(--bg);
-    }
-    header{
-      padding:18px 16px 10px 16px;
-      border-bottom:1px solid var(--border);
-      background:linear-gradient(to bottom, rgba(255,255,255,.92), rgba(255,255,255,.75));
-      position:sticky; top:0; z-index:2; backdrop-filter:blur(10px);
-    }
-    header h1{ margin:0 0 6px 0; font-size:18px; font-weight:800; letter-spacing:.1px; }
-    header .sub{ margin:0; color:var(--muted); font-size:13px; line-height:1.35; }
-
-    .wrap{
-      display:grid; grid-template-columns:360px 1fr; gap:14px; padding:14px;
-      max-width:1400px; margin:0 auto;
-    }
-    @media (max-width:980px){
-      .wrap{ grid-template-columns:1fr; }
-      header{ position:relative; }
-    }
-
-    .panel{
-      background:rgba(255,255,255,.92);
-      border:1px solid var(--border);
-      border-radius:12px;
-      box-shadow:0 10px 24px var(--shadow);
-      overflow:hidden;
-    }
-    .panel .head{
-      padding:12px 12px 10px 12px;
-      border-bottom:1px solid var(--border);
-      background:rgba(241,245,249,.95);
-    }
-    .panel .head h2{
-      margin:0; font-size:12px; color:#334155; font-weight:800;
-      letter-spacing:.35px; text-transform:uppercase;
-    }
-    .panel .body{ padding:12px; }
-
-    .control{
-      display:grid; grid-template-columns:1fr 98px;
-      gap:10px; align-items:center; margin-bottom:12px;
-    }
-    .control label{ display:block; font-size:13px; margin-bottom:4px; }
-    .control .hint{ font-size:11px; color:var(--muted); margin-top:2px; }
-
-    input[type="range"]{ width:100%; }
-    input[type="number"]{
-      width:98px; padding:7px 8px;
-      border-radius:10px; border:1px solid var(--border);
-      background:rgba(248,250,252,.95);
       color:var(--text);
-      font-family:var(--mono); font-size:12px; outline:none;
+      font-family:var(--sans);
     }
-
-    .row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:10px 0 4px 0; }
-    .chip{
-      border:1px solid var(--border);
-      background:rgba(248,250,252,.95);
-      border-radius:999px;
-      padding:7px 10px;
+    #app{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:14px;
+      padding:14px;
+      min-height:100vh;
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:14px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+    }
+    .left{
+      padding:14px;
+      position:sticky;
+      top:14px;
+      height:calc(100vh - 28px);
+      overflow:auto;
+    }
+    h1{
+      font-size:16px;
+      margin:0 0 8px 0;
+      letter-spacing:.2px;
+    }
+    .sub{
+      color:var(--muted);
       font-size:12px;
-      color:#0f172a;
-      display:inline-flex; gap:8px; align-items:center;
+      line-height:1.35;
+      margin-bottom:10px;
+    }
+    .group{
+      padding:10px;
+      background: rgba(0,0,0,.16);
+      border:1px solid var(--line);
+      border-radius:12px;
+      margin:10px 0;
+    }
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin:8px 0;
+    }
+    label{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .seg{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+    }
+    .seg label{
+      color:var(--text);
+      font-size:12px;
+      display:flex;
+      gap:6px;
+      align-items:center;
+      padding:6px 8px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background: rgba(255,255,255,.03);
+      cursor:pointer;
       user-select:none;
     }
-    .chip input{ transform:translateY(1px); }
+    .seg input{ accent-color: var(--accent); }
+    .seg .put input{ accent-color: var(--accent2); }
+    .param{
+      display:grid;
+      grid-template-columns: 1fr 120px;
+      gap:10px;
+      align-items:center;
+      margin:10px 0;
+    }
+    .param .meta{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:4px;
+    }
+    .param .meta .name{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .param .meta .val{
+      font-family:var(--mono);
+      font-size:12px;
+      color:var(--text);
+      opacity:.95;
+    }
+    .param input[type="range"]{ width:100%; }
+    input[type="number"]{
+      width:100%;
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color:var(--text);
+      font-family:var(--mono);
+      outline:none;
+    }
+    input[type="number"]:focus{
+      border-color: rgba(122,162,255,.6);
+      box-shadow: 0 0 0 3px rgba(122,162,255,.15);
+    }
+    button{
+      padding:9px 10px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background: rgba(122,162,255,.14);
+      color: var(--text);
+      cursor:pointer;
+      font-size:12px;
+    }
+    button:hover{ background: rgba(122,162,255,.22); }
 
-    .divider{ height:1px; background:var(--border); margin:12px 0; }
-
-    .readout{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .metric{
-      border:1px solid var(--border);
-      background:rgba(248,250,252,.95);
+    .readout{
+      display:grid;
+      gap:8px;
+      padding:10px;
+      background: rgba(0,0,0,.18);
+      border:1px solid var(--line);
       border-radius:12px;
-      padding:10px 10px 9px 10px;
+      margin-top:10px;
     }
-    .metric .k{
-      font-size:11px; color:var(--muted); margin-bottom:6px;
-      letter-spacing:.25px; text-transform:uppercase;
+    .readout .title{
+      font-size:12px;
+      color:var(--muted);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
     }
-    .metric .v{ font-family:var(--mono); font-size:13px; }
-
-    .plots{
-      display:grid; grid-template-columns:1fr; gap:12px; padding:12px;
-    }
-    .plots-split{
-      display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px;
-    }
-    @media (max-width:980px){
-      .plots-split{ grid-template-columns:1fr; }
-    }
-    .plotbox{
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.92);
+    .table{
+      border:1px solid rgba(255,255,255,.08);
       border-radius:12px;
-      padding:8px;
+      overflow:hidden;
+      font-family:var(--mono);
+      font-size:12px;
     }
-    .note{ font-size:12px; color:var(--muted); line-height:1.45; }
-    .note code{ font-family:var(--mono); font-size:11px; color:#0f172a; }
+    .trow{
+      display:grid;
+      grid-template-columns: 120px 1fr 1fr;
+      gap:0;
+    }
+    .trow.two{
+      grid-template-columns: 120px 1fr;
+    }
+    .tcell{
+      padding:8px 10px;
+      border-top:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.12);
+    }
+    .trow:first-child .tcell{ border-top:none; background: rgba(255,255,255,.03); }
+    .thead{
+      color:var(--muted);
+      font-family:var(--sans);
+      font-size:12px;
+    }
+    .callTxt{ color: var(--accent); }
+    .putTxt{ color: var(--accent2); }
+
+    .right{
+      padding:14px;
+      overflow:hidden;
+    }
+    .charts{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap:12px;
+    }
+    .chart-card{
+      padding:10px;
+      background: rgba(0,0,0,.16);
+      border:1px solid var(--line);
+      border-radius:12px;
+      position:relative;
+      min-height:260px;
+    }
+    .chart-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .chart-title .name{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .legend{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      font-size:11px;
+      color:var(--muted);
+      user-select:none;
+      white-space:nowrap;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:99px;display:inline-block;
+      border:1px solid rgba(255,255,255,.25);
+      margin-right:6px;
+      transform: translateY(1px);
+    }
+    .dot.call{ background: var(--accent); }
+    .dot.put{ background: var(--accent2); }
+    .mutedOff{ opacity:.35; }
+    canvas{
+      width:100%;
+      height:210px;
+      display:block;
+      border-radius:10px;
+      background: rgba(255,255,255,.02);
+      border:1px solid rgba(255,255,255,.07);
+      touch-action:none; /* enable pointer pan/zoom */
+      cursor: grab;
+    }
+    canvas:active{ cursor: grabbing; }
+
+    .footer{
+      margin-top:10px;
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    @media (max-width: 980px){
+      #app{ grid-template-columns: 1fr; }
+      .left{ position:relative; height:auto; }
+      .charts{ grid-template-columns: 1fr; }
+      canvas{ height:240px; }
+    }
   </style>
 </head>
 
 <body>
-<header>
-  <h1>Black–Scholes Greeks Explorer</h1>
-  <p class="sub">
-    Curves of <b>Δ (delta), Γ (gamma), Θ (theta), ν (vega), ρ (rho)</b> vs underlying price <b>S</b>.  </p>
-</header>
+<div id="app">
+  <div class="card left">
+    <h1>Options Greeks Explorer (Black–Scholes)</h1>
+    <div class="sub">
+      Sliders update curves live. Axes are <b>fixed</b> when inputs change (until you pan/zoom).
+      <br/>Interaction: <b>drag</b> to pan • <b>mouse wheel</b> / <b>trackpad</b> to zoom • <b>double‑click</b> a chart to reset its view.
+    </div>
 
-<div class="wrap">
-  <!-- Controls -->
-  <section class="panel">
-    <div class="head"><h2>Parameters</h2></div>
-    <div class="body">
-
-      <div class="control">
-        <div>
-          <label for="spot">Spot (S₀)</label>
-          <input id="spot" type="range" min="0" max="100" step="0.5" value="50">
-          <div class="hint">Moves the vertical spot marker; x-axis stays fixed.</div>
-        </div>
-        <input id="spotN" type="number" min="0" step="0.01" value="50">
-      </div>
-
-      <div class="control">
-        <div>
-          <label for="strike">Strike (K)</label>
-          <input id="strike" type="range" min="0" max="100" step="0.5" value="50">
-          <div class="hint">European option (Black–Scholes).</div>
-        </div>
-        <input id="strikeN" type="number" min="0" step="0.01" value="50">
-      </div>
-
-      <div class="control">
-        <div>
-          <label for="days">Time to expiry (days)</label>
-          <input id="days" type="range" min="0.1" max="730" step="0.1" value="30">
-          <div class="hint">Decimal allowed (step 0.1). Converted to years as T = days / 365.</div>
-        </div>
-        <input id="daysN" type="number" min="0.1" step="0.1" value="30">
-      </div>
-
-      <div class="control">
-        <div>
-          <label for="vol">Implied volatility (σ, %)</label>
-          <input id="vol" type="range" min="1" max="200" step="0.1" value="30">
-          <div class="hint">Black–Scholes assumes constant volatility.</div>
-        </div>
-        <input id="volN" type="number" min="0.01" step="0.01" value="30">
-      </div>
-
-      <div class="control">
-        <div>
-          <label for="rate">Risk-free rate (r, %)</label>
-          <input id="rate" type="range" min="-5" max="15" step="0.01" value="4">
-          <div class="hint">Continuously compounded.</div>
-        </div>
-        <input id="rateN" type="number" step="0.01" value="4">
-      </div>
-
-      <div class="divider"></div>
-
+    <div class="group">
       <div class="row">
-        <span class="chip"><input id="showCall" type="checkbox" checked> Call</span>
-        <span class="chip"><input id="showPut" type="checkbox"> Put</span>
+        <label>Curves to display</label>
+        <div class="seg">
+          <label class="call"><input type="checkbox" id="showCall" checked> Call</label>
+          <label class="put"><input type="checkbox" id="showPut" checked> Put</label>
+        </div>
+      </div>
+      <div class="row">
+        <label>Units</label>
+        <div class="seg">
+          <label title="Vega shown per 1% IV change (instead of per 1.00 = 100% vol)">
+            <input type="checkbox" id="vegaPer1pct" checked> Vega / 1%
+          </label>
+          <label title="Rho shown per 1% rate change (instead of per 1.00 = 100% rate)">
+            <input type="checkbox" id="rhoPer1pct" checked> Rho / 1%
+          </label>
+          <label title="Theta shown per day (instead of per year)">
+            <input type="checkbox" id="thetaPerDay" checked> Theta / day
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="group" id="params"></div>
+
+    <div class="row">
+      <button id="resetInputsBtn">Reset inputs</button>
+      <button id="resetViewBtn" title="Reset x-axis to 0..100 and reset y-ranges to defaults">Reset axes</button>
+    </div>
+
+    <div class="readout">
+      <div class="title">
+        <span>At current spot</span>
+        <span style="font-family:var(--mono);">S=<span id="spotRead"></span>, K=<span id="strikeRead"></span></span>
+      </div>
+      <div class="table" id="readTable"></div>
+    </div>
+
+    <div class="footer">
+      Vertical reference lines: <span class="callTxt">spot</span> (dashed) and <span class="putTxt">strike</span> (dotted).
+      <br/>Assumes European exercise, no dividends, continuous compounding.
+    </div>
+  </div>
+
+  <div class="card right">
+    <div class="charts">
+      <div class="chart-card">
+        <div class="chart-title">
+          <div class="name">Delta (∂Price/∂S)</div>
+          <div class="legend" id="legendDelta"></div>
+        </div>
+        <canvas id="cDelta"></canvas>
       </div>
 
-      <div class="divider"></div>
-
-      <div class="head" style="border-radius:10px; border:1px solid var(--border);">
-        <h2>Greeks at current spot (S₀)</h2>
-      </div>
-      <div style="height:10px;"></div>
-
-      <div class="readout">
-        <div class="metric"><div class="k">Delta</div><div class="v" id="mDelta">—</div></div>
-        <div class="metric"><div class="k">Gamma</div><div class="v" id="mGamma">—</div></div>
-        <div class="metric"><div class="k">Theta (per day)</div><div class="v" id="mTheta">—</div></div>
-        <div class="metric"><div class="k">Vega (per 1% vol)</div><div class="v" id="mVega">—</div></div>
-        <div class="metric"><div class="k">Rho (per 1% rate)</div><div class="v" id="mRho">—</div></div>
-        <div class="metric"><div class="k">Value</div><div class="v" id="mValue">—</div></div>
+      <div class="chart-card">
+        <div class="chart-title">
+          <div class="name">Gamma (∂²Price/∂S²)</div>
+          <div class="legend" id="legendGamma"></div>
+        </div>
+        <canvas id="cGamma"></canvas>
       </div>
 
-      <div style="height:12px;"></div>
-      <p class="note">
-        Notes:
-        <br>• Model: Black–Scholes–Merton European option with <code>q = 0</code> (no dividend yield).
-        <br>• Unit conventions: Θ shown <b>per day</b>; ν and ρ shown <b>per 1% change</b> in σ and r.
-        <br>• Axes are fixed: Δ ∈ [-1,1], Γ ∈ [0,1], Θ/day ∈ [-0.5,0.5], ν/1% ∈ [0,1], ρ/1% ∈ [-5,5], Value ∈ [0,10].
-      </p>
+      <div class="chart-card">
+        <div class="chart-title">
+          <div class="name">Vega (∂Price/∂σ)</div>
+          <div class="legend" id="legendVega"></div>
+        </div>
+        <canvas id="cVega"></canvas>
+      </div>
 
-    </div>
-  </section>
+      <div class="chart-card">
+        <div class="chart-title">
+          <div class="name">Theta (∂Price/∂t)</div>
+          <div class="legend" id="legendTheta"></div>
+        </div>
+        <canvas id="cTheta"></canvas>
+      </div>
 
-  <!-- Plots -->
-  <section class="panel">
-    <div class="head"><h2>Greeks vs Underlying Price</h2></div>
-    <div class="plots">
-      <div class="plotbox"><div id="chartDelta" style="height:260px;"></div></div>
-      <div class="plotbox"><div id="chartGamma" style="height:260px;"></div></div>
-      <div class="plotbox"><div id="chartTheta" style="height:260px;"></div></div>
-      <div class="plotbox"><div id="chartVega" style="height:260px;"></div></div>
-      <div class="plotbox"><div id="chartRho" style="height:260px;"></div></div>
+      <div class="chart-card" style="grid-column: 1 / -1;">
+        <div class="chart-title">
+          <div class="name">Rho (∂Price/∂r)</div>
+          <div class="legend" id="legendRho"></div>
+        </div>
+        <canvas id="cRho"></canvas>
+      </div>
     </div>
-    <div class="head"><h2>Value</h2></div>
-    <div class="plots-split">
-      <div class="plotbox"><div id="chartValue" style="height:260px;"></div></div>
-      <div class="plotbox"><div id="chartValueTime" style="height:260px;"></div></div>
-    </div>
-  </section>
+  </div>
 </div>
 
 <script>
-  const S_GRID_MIN = 0;
-  const S_GRID_MAX = 100;
-  const S_CALC_MIN = 0;
-  const S_CALC_MAX = 200;
-  const N_PTS = 2001; // Calculate from 0 to 10000 for zooming
-
-  const YR = {
-    delta: [-1.0,  1.0],
-    gamma: [ 0.0,  1.0],
-    theta: [-0.5,  0.5], // per day
-    vega:  [ 0.0,  1.0], // per 1% vol
-    rho:   [-5.0,  5.0], // per 1% rate
-    value: [ 0.0, 10.0]  // option value
-  };
-
-  const COLORS = {
-    text: "#0f172a",
-    grid: "rgba(15,23,42,.10)",
-    line: "#0f172a",
-    callTrace: "#2563eb",
-    putTrace: "#dc2626"
-  };
-
-  // ---------------- Math helpers (no deps) -----------------------------------
-  function erf(x) {
-    const sign = (x >= 0) ? 1 : -1;
+(() => {
+  // -------- Normal CDF/PDF --------
+  function erf(x){
+    const sign = x >= 0 ? 1 : -1;
     x = Math.abs(x);
-    const a1 =  0.254829592, a2 = -0.284496736, a3 =  1.421413741,
-          a4 = -1.453152027, a5 =  1.061405429, p  =  0.3275911;
-    const t = 1.0 / (1.0 + p*x);
-    const y = 1.0 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t*Math.exp(-x*x);
-    return sign*y;
+    const a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429;
+    const p=0.3275911;
+    const t = 1 / (1 + p*x);
+    const y = 1 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t * Math.exp(-x*x);
+    return sign * y;
   }
-  function normCDF(x) { return 0.5 * (1 + erf(x / Math.SQRT2)); }
-  function normPDF(x) { return Math.exp(-0.5*x*x) / Math.sqrt(2*Math.PI); }
+  function normCdf(x){ return 0.5*(1 + erf(x / Math.SQRT2)); }
+  function normPdf(x){ return Math.exp(-0.5*x*x) / Math.sqrt(2*Math.PI); }
 
-  // ---------------- Black–Scholes greeks (q = 0) -----------------------------
-  function bsGreeks(S, K, T, sigma, r) {
+  // -------- Black-Scholes Greeks (no dividends) --------
+  function bsGreeks(S, K, T, sigma, r, isCall){
+    const eps = 1e-12;
+    S = Math.max(S, eps);
+    K = Math.max(K, eps);
+    T = Math.max(T, 1e-10);
+    sigma = Math.max(sigma, 1e-10);
+
     const sqrtT = Math.sqrt(T);
-    const d1 = (Math.log(S / K) + (r + 0.5*sigma*sigma)*T) / (sigma*sqrtT);
+    const d1 = (Math.log(S/K) + (r + 0.5*sigma*sigma)*T) / (sigma*sqrtT);
     const d2 = d1 - sigma*sqrtT;
 
-    const Nd1 = normCDF(d1), Nd2 = normCDF(d2);
-    const Nmd1 = normCDF(-d1), Nmd2 = normCDF(-d2);
-    const nd1 = normPDF(d1);
+    const Nd1 = normCdf(d1);
+    const Nd2 = normCdf(d2);
+    const Nnd1 = normCdf(-d1);
+    const Nnd2 = normCdf(-d2);
+    const nd1 = normPdf(d1);
+    const disc = Math.exp(-r*T);
 
-    const discR = Math.exp(-r*T);
+    const price = isCall
+      ? (S * Nd1 - K * disc * Nd2)
+      : (K * disc * Nnd2 - S * Nnd1);
 
-    // Delta
-    const callDelta = Nd1;
-    const putDelta  = Nd1 - 1;
-
-    // Gamma
+    const delta = isCall ? Nd1 : (Nd1 - 1);
     const gamma = nd1 / (S * sigma * sqrtT);
+    const vega  = S * nd1 * sqrtT;
+    const theta = isCall
+      ? (-(S*nd1*sigma)/(2*sqrtT) - r*K*disc*Nd2)
+      : (-(S*nd1*sigma)/(2*sqrtT) + r*K*disc*Nnd2);
+    const rho = isCall
+      ? (K * T * disc * Nd2)
+      : (-K * T * disc * Nnd2);
 
-    // Vega (per 1.0 vol)
-    const vega = S * nd1 * sqrtT;
-
-    // Theta (per year)
-    const firstTerm = -(S * nd1 * sigma) / (2*sqrtT);
-    const callTheta = firstTerm - r*K*discR*Nd2;
-    const putTheta  = firstTerm + r*K*discR*Nmd2;
-
-    // Rho (per 1.0 rate)
-    const callRho = K * T * discR * Nd2;
-    const putRho  = -K * T * discR * Nmd2;
-
-    // Option Value
-    const callValue = S * Nd1 - K * discR * Nd2;
-    const putValue  = K * discR * Nmd2 - S * Nmd1;
-
-    return {
-      call: { delta: callDelta, gamma, theta: callTheta, vega, rho: callRho, value: callValue },
-      put:  { delta: putDelta,  gamma, theta: putTheta,  vega, rho: putRho,  value: putValue  }
-    };
+    return { price, delta, gamma, vega, theta, rho };
   }
 
-  // ---------------- UI wiring -----------------------------------------------
-  function $(id) { return document.getElementById(id); }
-
-  const controls = {
-    spot:   { s: $("spot"),   n: $("spotN") },
-    strike: { s: $("strike"), n: $("strikeN") },
-    days:   { s: $("days"),   n: $("daysN") },
-    vol:    { s: $("vol"),    n: $("volN") },
-    rate:   { s: $("rate"),   n: $("rateN") }
-  };
-
-  const toggles = {
-    showCall: $("showCall"),
-    showPut: $("showPut")
-  };
-
-  function bindPair(key) {
-    const slider = controls[key].s;
-    const number = controls[key].n;
-
-    function syncFromSlider() {
-      number.value = slider.value;
-      updateAll();
+  // -------- Formatting / ticks --------
+  function fmt(x){
+    if (!isFinite(x)) return "—";
+    const a = Math.abs(x);
+    if (a === 0) return "0";
+    if (a >= 1e6 || a < 1e-4) return x.toExponential(3);
+    if (a < 1) return x.toFixed(5).replace(/0+$/,'').replace(/\.$/,'');
+    if (a < 100) return x.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+    return x.toFixed(3).replace(/0+$/,'').replace(/\.$/,'');
+  }
+  function niceStep(range, targetTicks=6){
+    const raw = range / Math.max(1, (targetTicks-1));
+    const exp = Math.floor(Math.log10(raw));
+    const frac = raw / Math.pow(10, exp);
+    let nice;
+    if (frac <= 1) nice = 1;
+    else if (frac <= 2) nice = 2;
+    else if (frac <= 5) nice = 5;
+    else nice = 10;
+    return nice * Math.pow(10, exp);
+  }
+  function buildTicks(min, max, targetTicks=6){
+    if (!isFinite(min) || !isFinite(max) || min === max){
+      const v = isFinite(min) ? min : 0;
+      return { ticks: [v-1, v, v+1] };
     }
-    function syncFromNumber() {
-      const v = parseFloat(number.value);
-      if (!Number.isFinite(v)) return;
-      const min = parseFloat(slider.min), max = parseFloat(slider.max);
-      const clamped = Math.max(min, Math.min(max, v));
-      slider.value = clamped;
-      number.value = clamped;
-      updateAll();
+    const range = max - min;
+    const step = niceStep(range, targetTicks);
+    const tmin = Math.floor(min/step) * step;
+    const tmax = Math.ceil(max/step) * step;
+    const ticks = [];
+    for (let t = tmin; t <= tmax + step*0.5; t += step) ticks.push(t);
+    return { ticks };
+  }
+  function clamp(x, lo, hi){ return Math.min(hi, Math.max(lo, x)); }
+
+  // -------- Layout helpers --------
+  const PAD = { L: 50, R: 12, T: 12, B: 30 };
+  function getPlotRect(canvas){
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+    const x0 = PAD.L, y0 = PAD.T;
+    const x1 = W - PAD.R, y1 = H - PAD.B;
+    return { W, H, x0, y0, x1, y1, w: (x1-x0), h: (y1-y0) };
+  }
+  function localPos(e, canvas){
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.clientWidth / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.clientHeight / rect.height);
+    return { x, y };
+  }
+
+  // -------- Chart drawing (fixed view) --------
+  function drawChart(canvas, series, viewX, viewY, refs){
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth, cssH = canvas.clientHeight;
+    canvas.width = Math.max(1, Math.round(cssW * dpr));
+    canvas.height = Math.max(1, Math.round(cssH * dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    const { W, H, x0, y0, x1, y1, w, h } = getPlotRect(canvas);
+
+    // Background
+    ctx.clearRect(0,0,W,H);
+
+    const xMin = viewX.min, xMax = viewX.max;
+    const yMin = viewY.min, yMax = viewY.max;
+    const xRange = xMax - xMin;
+    const yRange = yMax - yMin;
+
+    const X = x => x0 + (x - xMin) * (w / xRange);
+    const Y = y => y1 - (y - yMin) * (h / yRange);
+
+    // Axes
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255,255,255,.14)";
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x0, y1);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+
+    // Grid + ticks
+    const xt = buildTicks(xMin, xMax, 6);
+    const yt = buildTicks(yMin, yMax, 6);
+
+    ctx.font = "11px " + getComputedStyle(document.documentElement).getPropertyValue('--mono').trim();
+    ctx.strokeStyle = "rgba(255,255,255,.08)";
+
+    // X ticks
+    for (const t of xt.ticks){
+      const xp = X(t);
+      ctx.beginPath();
+      ctx.moveTo(xp, y0);
+      ctx.lineTo(xp, y1);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(231,238,252,.72)";
+      const txt = fmt(t);
+      const tw = ctx.measureText(txt).width;
+      ctx.fillText(txt, xp - tw/2, H - 10);
     }
 
-    slider.addEventListener("input", syncFromSlider);
-    number.addEventListener("change", syncFromNumber);
-    number.addEventListener("keyup", (e) => { if (e.key === "Enter") syncFromNumber(); });
-  }
-  Object.keys(controls).forEach(bindPair);
+    // Y ticks
+    for (const t of yt.ticks){
+      const yp = Y(t);
+      ctx.beginPath();
+      ctx.moveTo(x0, yp);
+      ctx.lineTo(x1, yp);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(231,238,252,.72)";
+      const txt = fmt(t);
+      const tw = ctx.measureText(txt).width;
+      ctx.fillText(txt, x0 - 8 - tw, yp + 4);
+    }
 
-  Object.values(toggles).forEach(t => t.addEventListener("change", () => {
-    if (!toggles.showCall.checked && !toggles.showPut.checked) toggles.showCall.checked = true;
-    updateAll();
-  }));
+    // Zero line (if visible)
+    if (yMin < 0 && yMax > 0){
+      ctx.strokeStyle = "rgba(99,230,190,.18)";
+      ctx.lineWidth = 1;
+      const yz = Y(0);
+      ctx.beginPath();
+      ctx.moveTo(x0, yz);
+      ctx.lineTo(x1, yz);
+      ctx.stroke();
+    }
 
-  // ---------------- Plot helpers --------------------------------------------
-  function linspace(a, b, n) {
-    const arr = new Array(n);
-    const step = (b - a) / (n - 1);
-    for (let i=0; i<n; i++) arr[i] = a + step*i;
-    return arr;
-  }
-
-  function baseLayout(title, yTitle, yRange, showXLabels) {
-    return {
-      title: { text: title, font: { size: 14, color: COLORS.text } },
-      margin: { l: 58, r: 18, t: 40, b: showXLabels ? 44 : 28 },
-      paper_bgcolor: "rgba(255,255,255,0)",
-      plot_bgcolor: "rgba(255,255,255,0)",
-      font: { color: COLORS.text },
-      xaxis: {
-        range: [S_GRID_MIN, S_GRID_MAX],
-        autorange: false,
-        fixedrange: false, // Allow zooming to see full 0-10000 range
-        title: showXLabels ? { text: "Underlying price S" } : undefined,
-        showgrid: true,
-        gridcolor: COLORS.grid,
-        zeroline: true,
-        zerolinecolor: COLORS.grid,
-        zerolinewidth: 1,
-        tickfont: { size: 11, color: COLORS.text }
-      },
-      yaxis: {
-        range: yRange,
-        autorange: false,
-        fixedrange: true,
-        title: { text: yTitle },
-        showgrid: true,
-        gridcolor: COLORS.grid,
-        zeroline: true,
-        zerolinecolor: COLORS.grid,
-        tickfont: { size: 11, color: COLORS.text }
-      },
-      legend: { orientation: "h", x: 0, y: 1.15, font: { size: 11, color: COLORS.text } },
-      hovermode: "x"
-    };
-  }
-
-  function xAxisLine() {
-    return {
-      type: "line",
-      xref: "paper", yref: "y",
-      x0: 0, x1: 1, y0: 0, y1: 0,
-      line: { width: 1, color: COLORS.grid }
-    };
-  }
-
-  function markerLines(S0, K) {
-    return [
-      {
-        type: "line",
-        xref: "x", yref: "paper",
-        x0: S0, x1: S0, y0: 0, y1: 1,
-        line: { width: 1, dash: "dot", color: COLORS.line }
-      },
-      {
-        type: "line",
-        xref: "x", yref: "paper",
-        x0: K, x1: K, y0: 0, y1: 1,
-        line: { width: 1, dash: "dash", color: COLORS.line }
+    // Ref lines: spot (dashed) and strike (dotted)
+    if (refs){
+      if (typeof refs.spot === "number" && refs.spot >= xMin && refs.spot <= xMax){
+        const xs = X(refs.spot);
+        ctx.save();
+        ctx.setLineDash([6,4]);
+        ctx.strokeStyle = "rgba(122,162,255,.40)";
+        ctx.beginPath(); ctx.moveTo(xs, y0); ctx.lineTo(xs, y1); ctx.stroke();
+        ctx.restore();
       }
-    ];
+      if (typeof refs.strike === "number" && refs.strike >= xMin && refs.strike <= xMax){
+        const xk = X(refs.strike);
+        ctx.save();
+        ctx.setLineDash([2,4]);
+        ctx.strokeStyle = "rgba(255,184,107,.40)";
+        ctx.beginPath(); ctx.moveTo(xk, y0); ctx.lineTo(xk, y1); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // Clip to plot area
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x0, y0, w, h);
+    ctx.clip();
+
+    // Plot each series
+    for (const s of series){
+      if (!s.visible) continue;
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = s.stroke;
+      ctx.beginPath();
+      let started = false;
+      for (const p of s.data){
+        if (!isFinite(p.y)) { started = false; continue; }
+        const xp = X(p.x), yp = Y(p.y);
+        if (!started){ ctx.moveTo(xp, yp); started = true; }
+        else ctx.lineTo(xp, yp);
+      }
+      ctx.stroke();
+
+      // Spot marker
+      if (refs && typeof refs.spot === "number" && refs.spot >= xMin && refs.spot <= xMax && isFinite(s.markerY)){
+        const xp = X(refs.spot), yp = Y(s.markerY);
+        ctx.fillStyle = s.stroke;
+        ctx.beginPath(); ctx.arc(xp, yp, 3.5, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,.35)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
   }
 
-  function fmt(x) {
-    if (!Number.isFinite(x)) return "NaN";
-    const ax = Math.abs(x);
-    if (ax === 0) return "0";
-    if (ax < 1e-5 || ax >= 1e6) return x.toExponential(6);
-    return x.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
+  // -------- State --------
+  const defaultState = {
+    spot: 50,    // changed so default x-axis 0..100 feels centered
+    strike: 50,
+    tYears: 0.50,
+    ivPct: 25,
+    rPct: 5,
+    showCall: true,
+    showPut: true,
+    vegaPer1pct: true,
+    rhoPer1pct: true,
+    thetaPerDay: true,
+  };
+  let state = JSON.parse(JSON.stringify(defaultState));
+
+  // Shared X view across all charts (default 0..100)
+  let xView = { min: 0, max: 100 };
+
+  // Y views per chart (defaults chosen for common ranges under typical params)
+  const yViews = {
+    delta: { min: -1.05, max:  1.05 },
+    gamma: { min:  0.00, max:  0.20 },
+    vega:  { min:  0.00, max:  1.00 },  // per 1% vol by default
+    theta: { min: -0.50, max:  0.20 },  // per day by default
+    rho:   { min: -1.00, max:  1.00 },  // per 1% rate by default
+  };
+
+  function defaultYFor(key){
+    // Scale defaults based on unit toggles (so "Reset axes" stays sensible)
+    if (key === "vega"){
+      const mult = state.vegaPer1pct ? 1 : 100;
+      return { min: 0.00 * mult, max: 1.00 * mult };
+    }
+    if (key === "rho"){
+      const mult = state.rhoPer1pct ? 1 : 100;
+      return { min: -1.00 * mult, max: 1.00 * mult };
+    }
+    if (key === "theta"){
+      const mult = state.thetaPerDay ? 1 : 365;
+      return { min: -0.50 * mult, max: 0.20 * mult };
+    }
+    if (key === "gamma") return { min: 0.00, max: 0.20 };
+    if (key === "delta") return { min: -1.05, max: 1.05 };
+    return { min: -1, max: 1 };
   }
 
-  function toDisplayUnits(g) {
-    return {
-      delta: g.delta,
-      gamma: g.gamma,
-      theta: g.theta / 365.0, // per day
-      vega:  g.vega  * 0.01,  // per 1% vol
-      rho:   g.rho   * 0.01,  // per 1% rate
-      value: g.value
+  // -------- UI build --------
+  const paramsEl = document.getElementById("params");
+  const showCallEl = document.getElementById("showCall");
+  const showPutEl = document.getElementById("showPut");
+  const vegaPer1pctEl = document.getElementById("vegaPer1pct");
+  const rhoPer1pctEl  = document.getElementById("rhoPer1pct");
+  const thetaPerDayEl = document.getElementById("thetaPerDay");
+  const spotReadEl = document.getElementById("spotRead");
+  const strikeReadEl = document.getElementById("strikeRead");
+  const readTableEl = document.getElementById("readTable");
+
+  function makeParam({id, name, hint, min, max, step, unit, format, get, set, dynamicRange}){
+    const wrap = document.createElement("div");
+    wrap.className = "param";
+
+    const left = document.createElement("div");
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const nm = document.createElement("div");
+    nm.className = "name";
+    nm.textContent = name;
+    if (hint) nm.title = hint;
+
+    const val = document.createElement("div");
+    val.className = "val";
+    val.id = id + "_val";
+
+    meta.appendChild(nm);
+    meta.appendChild(val);
+
+    const range = document.createElement("input");
+    range.type = "range";
+    range.id = id + "_range";
+    range.min = min; range.max = max; range.step = step;
+
+    left.appendChild(meta);
+    left.appendChild(range);
+
+    const numWrap = document.createElement("div");
+    const num = document.createElement("input");
+    num.type = "number";
+    num.id = id + "_num";
+    num.min = min; num.max = max; num.step = step;
+    numWrap.appendChild(num);
+
+    wrap.appendChild(left);
+    wrap.appendChild(numWrap);
+    paramsEl.appendChild(wrap);
+
+    function syncUI(){
+      const v = get();
+      if (dynamicRange){
+        const rmin = parseFloat(range.min), rmax = parseFloat(range.max);
+        if (v < rmin) range.min = Math.max(0, v * 0.5);
+        if (v > rmax) range.max = v * 2;
+        num.min = range.min; num.max = range.max;
+      }
+      range.value = v;
+      num.value = v;
+      val.textContent = (format ? format(v) : (fmt(v) + (unit||"")));
+    }
+
+    function onAnyInput(v){
+      const nv = Number(v);
+      if (!isFinite(nv)) return;
+      set(nv);
+      syncUI();
+      render(); // axes stay fixed; only curves update
+    }
+
+    range.addEventListener("input", e => onAnyInput(e.target.value));
+    num.addEventListener("input", e => onAnyInput(e.target.value));
+    syncUI();
+
+    return { syncUI };
+  }
+
+  function buildParams(){
+    paramsEl.innerHTML = "";
+    makeParam({
+      id: "spot", name: "Spot (S)", hint: "Underlying price",
+      min: 0.01, max: 200, step: 0.1,
+      dynamicRange: true,
+      get: () => state.spot,
+      set: v => state.spot = Math.max(0.01, v),
+      format: v => fmt(v)
+    });
+    makeParam({
+      id: "strike", name: "Strike (K)", hint: "Option strike price",
+      min: 0.01, max: 200, step: 0.1,
+      dynamicRange: true,
+      get: () => state.strike,
+      set: v => state.strike = Math.max(0.01, v),
+      format: v => fmt(v)
+    });
+    makeParam({
+      id: "tYears", name: "Time to expiry (T, years)", hint: "Decimal years (e.g., 0.25 ≈ 3 months)",
+      min: 0.001, max: 5, step: 0.001,
+      get: () => state.tYears,
+      set: v => state.tYears = Math.max(1e-6, v),
+      format: v => fmt(v) + "y"
+    });
+    makeParam({
+      id: "ivPct", name: "Implied volatility (σ, %)", hint: "Annualized volatility as percent",
+      min: 1, max: 300, step: 0.1,
+      get: () => state.ivPct,
+      set: v => state.ivPct = Math.max(0.0001, v),
+      format: v => fmt(v) + "%"
+    });
+    makeParam({
+      id: "rPct", name: "Risk-free rate (r, %)", hint: "Continuously compounded risk-free rate",
+      min: -10, max: 25, step: 0.01,
+      get: () => state.rPct,
+      set: v => state.rPct = v,
+      format: v => fmt(v) + "%"
+    });
+  }
+
+  buildParams();
+
+  function ensureAtLeastOneCurve(){
+    if (!state.showCall && !state.showPut){
+      state.showCall = true;
+      showCallEl.checked = true;
+    }
+  }
+
+  showCallEl.addEventListener("change", () => {
+    state.showCall = showCallEl.checked;
+    ensureAtLeastOneCurve();
+    render();
+  });
+  showPutEl.addEventListener("change", () => {
+    state.showPut = showPutEl.checked;
+    ensureAtLeastOneCurve();
+    render();
+  });
+
+  vegaPer1pctEl.addEventListener("change", () => { state.vegaPer1pct = vegaPer1pctEl.checked; render(); });
+  rhoPer1pctEl.addEventListener("change",  () => { state.rhoPer1pct  = rhoPer1pctEl.checked;  render(); });
+  thetaPerDayEl.addEventListener("change", () => { state.thetaPerDay = thetaPerDayEl.checked; render(); });
+
+  document.getElementById("resetInputsBtn").addEventListener("click", () => {
+    state = JSON.parse(JSON.stringify(defaultState));
+    showCallEl.checked = state.showCall;
+    showPutEl.checked = state.showPut;
+    vegaPer1pctEl.checked = state.vegaPer1pct;
+    rhoPer1pctEl.checked = state.rhoPer1pct;
+    thetaPerDayEl.checked = state.thetaPerDay;
+    buildParams();
+    render();
+  });
+
+  document.getElementById("resetViewBtn").addEventListener("click", () => {
+    xView = { min: 0, max: 100 };
+    for (const k of Object.keys(yViews)){
+      yViews[k] = defaultYFor(k);
+    }
+    render();
+  });
+
+  // -------- Compute curves in current xView --------
+  function computeCurves(){
+    const S0 = state.spot;
+    const K  = state.strike;
+    const T  = state.tYears;
+    const sigma = state.ivPct / 100;
+    const r = state.rPct / 100;
+
+    const xMin = xView.min;
+    const xMax = xView.max;
+    const N = 260;
+
+    const unitVega = state.vegaPer1pct ? 0.01 : 1.0;
+    const unitRho  = state.rhoPer1pct  ? 0.01 : 1.0;
+    const unitTheta= state.thetaPerDay ? (1/365) : 1.0;
+
+    const xs = new Array(N);
+    const call = { delta:[], gamma:[], vega:[], theta:[], rho:[] };
+    const put  = { delta:[], gamma:[], vega:[], theta:[], rho:[] };
+
+    for (let i=0;i<N;i++){
+      const x = xMin + (xMax - xMin) * (i/(N-1));
+      xs[i] = x;
+
+      const S = Math.max(1e-10, x); // allow axis to show 0, but compute safely
+      const gc = bsGreeks(S, K, T, sigma, r, true);
+      const gp = bsGreeks(S, K, T, sigma, r, false);
+
+      call.delta.push({x, y: gc.delta});
+      call.gamma.push({x, y: gc.gamma});
+      call.vega .push({x, y: gc.vega * unitVega});
+      call.theta.push({x, y: gc.theta * unitTheta});
+      call.rho  .push({x, y: gc.rho  * unitRho});
+
+      put.delta.push({x, y: gp.delta});
+      put.gamma.push({x, y: gp.gamma});
+      put.vega .push({x, y: gp.vega * unitVega});
+      put.theta.push({x, y: gp.theta * unitTheta});
+      put.rho  .push({x, y: gp.rho  * unitRho});
+    }
+
+    const atSpotCall = bsGreeks(S0, K, T, sigma, r, true);
+    const atSpotPut  = bsGreeks(S0, K, T, sigma, r, false);
+
+    const atSpot = {
+      call: {
+        price: atSpotCall.price,
+        delta: atSpotCall.delta,
+        gamma: atSpotCall.gamma,
+        vega:  atSpotCall.vega * unitVega,
+        theta: atSpotCall.theta * unitTheta,
+        rho:   atSpotCall.rho  * unitRho
+      },
+      put: {
+        price: atSpotPut.price,
+        delta: atSpotPut.delta,
+        gamma: atSpotPut.gamma,
+        vega:  atSpotPut.vega * unitVega,
+        theta: atSpotPut.theta * unitTheta,
+        rho:   atSpotPut.rho  * unitRho
+      }
     };
+
+    return { call, put, atSpot };
   }
 
-  function makeTraces(x, yCall, yPut, name) {
-    const traces = [];
-    if (toggles.showCall.checked) {
-      traces.push({
-        x, y: yCall, type: "scatter", mode: "lines", name: "Call",
-        line: { color: COLORS.callTrace, width: 2 },
-        hovertemplate: `${name} (Call): %{y:.8g}<extra></extra>`
-      });
-    }
-    if (toggles.showPut.checked) {
-      traces.push({
-        x, y: yPut, type: "scatter", mode: "lines", name: "Put",
-        line: { color: COLORS.putTrace, width: 2 },
-        hovertemplate: `${name} (Put): %{y:.8g}<extra></extra>`
-      });
-    }
-    return traces;
+  // -------- Legends + readout --------
+  const callColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const putColor  = getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim();
+
+  function setLegend(elId){
+    const el = document.getElementById(elId);
+    const callClass = state.showCall ? "" : "mutedOff";
+    const putClass  = state.showPut  ? "" : "mutedOff";
+    el.innerHTML =
+      `<span class="${callClass}"><span class="dot call"></span>Call</span>` +
+      `<span class="${putClass}"><span class="dot put"></span>Put</span>`;
   }
 
-  // ---------------- Initialize plots ----------------------------------------
-  const cfg = { responsive: true, displayModeBar: true };
-
-  function initPlots() {
-    Plotly.newPlot("chartDelta", [], baseLayout("Delta (Δ)", "Δ", YR.delta, false), cfg);
-    Plotly.newPlot("chartGamma", [], baseLayout("Gamma (Γ)", "Γ", YR.gamma, false), cfg);
-    Plotly.newPlot("chartTheta", [], baseLayout("Theta (Θ)", "Θ per day", YR.theta, false), cfg);
-    Plotly.newPlot("chartVega",  [], baseLayout("Vega (ν)",  "ν per 1% vol", YR.vega, false), cfg);
-    Plotly.newPlot("chartRho",   [], baseLayout("Rho (ρ)",   "ρ per 1% rate", YR.rho, false), cfg);
-    Plotly.newPlot("chartValue", [], baseLayout("Value vs Underlying", "Value", YR.value, false), cfg);
-    const timeLayout = baseLayout("Value vs Time to Expiry", "Value", YR.value, true);
-    timeLayout.xaxis.title = { text: "Time to expiry (days)" };
-    timeLayout.xaxis.range = [0, 730];
-    Plotly.newPlot("chartValueTime", [], timeLayout, cfg);
+  function readoutLabels(){
+    const vegaLabel = state.vegaPer1pct ? "Vega (/1%)" : "Vega (/1.00)";
+    const rhoLabel  = state.rhoPer1pct  ? "Rho (/1%)"  : "Rho (/1.00)";
+    const thetaLabel= state.thetaPerDay ? "Theta (/day)" : "Theta (/year)";
+    return { vegaLabel, rhoLabel, thetaLabel };
   }
 
-  // ---------------- Main update ---------------------------------------------
-  // Calculate data from 0 to 10000 for zooming, but display 0 to 100
-  const x = linspace(S_CALC_MIN, S_CALC_MAX, N_PTS);
+  function renderReadout(curves){
+    spotReadEl.textContent = fmt(state.spot);
+    strikeReadEl.textContent = fmt(state.strike);
 
-  function readParams() {
-    const S0 = parseFloat(controls.spot.n.value);
-    const K  = parseFloat(controls.strike.n.value);
-    const days = parseFloat(controls.days.n.value);
-    const volPct = parseFloat(controls.vol.n.value);
-    const rPct = parseFloat(controls.rate.n.value);
+    const { vegaLabel, rhoLabel, thetaLabel } = readoutLabels();
+    const metrics = [
+      ["Price", "price"],
+      ["Delta", "delta"],
+      ["Gamma", "gamma"],
+      [vegaLabel, "vega"],
+      [thetaLabel, "theta"],
+      [rhoLabel, "rho"]
+    ];
 
-    const T = Math.max(days / 365.0, 1e-8);
-    const sigma = Math.max(volPct / 100.0, 1e-8);
-    const r = rPct / 100.0;
+    const showBoth = state.showCall && state.showPut;
+    const showOne = (state.showCall ^ state.showPut);
 
-    return { S0, K, T, sigma, r };
-  }
+    readTableEl.innerHTML = "";
 
-  function updateReadout(S0, K, T, sigma, r) {
-    const { call, put } = bsGreeks(Math.max(S0, 0.01), Math.max(K,0.01), T, sigma, r);
-    const c = toDisplayUnits(call);
-    const p = toDisplayUnits(put);
+    // Header
+    if (showBoth){
+      const h = document.createElement("div");
+      h.className = "trow";
+      h.innerHTML =
+        `<div class="tcell thead">Metric</div>` +
+        `<div class="tcell thead callTxt">Call</div>` +
+        `<div class="tcell thead putTxt">Put</div>`;
+      readTableEl.appendChild(h);
 
-    const useCall = toggles.showCall.checked;
-    const usePut = toggles.showPut.checked;
-
-    if (useCall && usePut) {
-      $("mDelta").textContent = `${fmt(c.delta)} (call) / ${fmt(p.delta)} (put)`;
-      $("mGamma").textContent = fmt(c.gamma);
-      $("mTheta").textContent = `${fmt(c.theta)} (call) / ${fmt(p.theta)} (put)`;
-      $("mVega").textContent  = fmt(c.vega);
-      $("mRho").textContent   = `${fmt(c.rho)} (call) / ${fmt(p.rho)} (put)`;
-      $("mValue").textContent = `${fmt(c.value)} (call) / ${fmt(p.value)} (put)`;
+      for (const [label, key] of metrics){
+        const r = document.createElement("div");
+        r.className = "trow";
+        r.innerHTML =
+          `<div class="tcell">${label}</div>` +
+          `<div class="tcell">${fmt(curves.atSpot.call[key])}</div>` +
+          `<div class="tcell">${fmt(curves.atSpot.put[key])}</div>`;
+        readTableEl.appendChild(r);
+      }
       return;
     }
 
-    const g = usePut ? p : c;
-    $("mDelta").textContent = fmt(g.delta);
-    $("mGamma").textContent = fmt(g.gamma);
-    $("mTheta").textContent = fmt(g.theta);
-    $("mVega").textContent  = fmt(g.vega);
-    $("mRho").textContent   = fmt(g.rho);
-    $("mValue").textContent = fmt(g.value);
-  }
+    // Single column (call OR put)
+    if (showOne){
+      const which = state.showCall ? "call" : "put";
+      const whichLabel = state.showCall ? "Call" : "Put";
+      const whichClass = state.showCall ? "callTxt" : "putTxt";
 
-  function updateAll() {
-    const { S0, K, T, sigma, r } = readParams();
-    const days = parseFloat(controls.days.n.value);
+      const h = document.createElement("div");
+      h.className = "trow two";
+      h.innerHTML =
+        `<div class="tcell thead">Metric</div>` +
+        `<div class="tcell thead ${whichClass}">${whichLabel}</div>`;
+      readTableEl.appendChild(h);
 
-    const dCall = [], dPut = [];
-    const gCall = [], gPut = [];
-    const tCall = [], tPut = [];
-    const vCall = [], vPut = [];
-    const rCall = [], rPut = [];
-    const valCall = [], valPut = [];
-
-    for (let i=0; i<x.length; i++) {
-      const S = Math.max(x[i], 0.01);
-      const G = bsGreeks(S, Math.max(K,0.01), T, sigma, r);
-
-      const c = toDisplayUnits(G.call);
-      const p = toDisplayUnits(G.put);
-
-      dCall.push(c.delta); dPut.push(p.delta);
-      gCall.push(c.gamma); gPut.push(p.gamma);
-      tCall.push(c.theta); tPut.push(p.theta);
-      vCall.push(c.vega);  vPut.push(p.vega);
-      rCall.push(c.rho);   rPut.push(p.rho);
-      valCall.push(c.value); valPut.push(p.value);
+      for (const [label, key] of metrics){
+        const r = document.createElement("div");
+        r.className = "trow two";
+        r.innerHTML =
+          `<div class="tcell">${label}</div>` +
+          `<div class="tcell">${fmt(curves.atSpot[which][key])}</div>`;
+        readTableEl.appendChild(r);
+      }
+      return;
     }
 
-    // Calculate value vs time to expiry (limited to slider value)
-    const timeDays = linspace(0.1, days, Math.max(100, Math.floor(days * 2)));
-    const valTimeCall = [], valTimePut = [];
-    for (let i=0; i<timeDays.length; i++) {
-      const daysVal = timeDays[i];
-      const TVal = Math.max(daysVal / 365.0, 1e-8);
-      const G = bsGreeks(Math.max(S0, 0.01), Math.max(K,0.01), TVal, sigma, r);
-      valTimeCall.push(G.call.value);
-      valTimePut.push(G.put.value);
-    }
-
-    updateReadout(S0, K, T, sigma, r);
-
-    const shapes = [xAxisLine(), ...markerLines(S0, K)];
-    const timeShapes = [{
-      type: "line",
-      xref: "x", yref: "paper",
-      x0: days, x1: days, y0: 0, y1: 1,
-      line: { width: 1, dash: "dot", color: COLORS.line }
-    }, xAxisLine()];
-
-    Plotly.react("chartDelta", makeTraces(x, dCall, dPut, "Δ"), { ...baseLayout("Delta (Δ)", "Δ", YR.delta, false), shapes });
-    Plotly.react("chartGamma", makeTraces(x, gCall, gPut, "Γ"), { ...baseLayout("Gamma (Γ)", "Γ", YR.gamma, false), shapes });
-    Plotly.react("chartTheta", makeTraces(x, tCall, tPut, "Θ"), { ...baseLayout("Theta (Θ)", "Θ per day", YR.theta, false), shapes });
-    Plotly.react("chartVega",  makeTraces(x, vCall, vPut, "ν"), { ...baseLayout("Vega (ν)", "ν per 1% vol", YR.vega, false), shapes });
-    Plotly.react("chartRho",   makeTraces(x, rCall, rPut, "ρ"), { ...baseLayout("Rho (ρ)", "ρ per 1% rate", YR.rho, false), shapes });
-    Plotly.react("chartValue", makeTraces(x, valCall, valPut, "Value"), { ...baseLayout("Value vs Underlying", "Value", YR.value, false), shapes });
-    const timeLayoutUpdate = baseLayout("Value vs Time to Expiry", "Value", YR.value, true);
-    timeLayoutUpdate.xaxis.title = { text: "Time to expiry (days)" };
-    timeLayoutUpdate.xaxis.range = [0, days];
-    timeLayoutUpdate.shapes = timeShapes;
-    Plotly.react("chartValueTime", makeTraces(timeDays, valTimeCall, valTimePut, "Value"), timeLayoutUpdate);
+    // Shouldn't happen due to ensureAtLeastOneCurve(), but just in case:
+    readTableEl.textContent = "Select Call and/or Put.";
   }
 
-  initPlots();
-  updateAll();
+  // -------- Pan/Zoom (shared X, per-chart Y) --------
+  function applyConstraints(){
+    // keep x >= 0
+    const minRangeX = 0.5;
+    const maxRangeX = 1e6;
+    let rx = xView.max - xView.min;
+    rx = clamp(rx, minRangeX, maxRangeX);
+    const center = (xView.min + xView.max)/2;
+    xView.min = center - rx/2;
+    xView.max = center + rx/2;
+    if (xView.min < 0){
+      xView.max -= xView.min;
+      xView.min = 0;
+    }
+
+    // per y
+    for (const k of Object.keys(yViews)){
+      const minRangeY = 1e-6;
+      const maxRangeY = 1e12;
+      let ry = yViews[k].max - yViews[k].min;
+      ry = clamp(ry, minRangeY, maxRangeY);
+      const c = (yViews[k].min + yViews[k].max)/2;
+      yViews[k].min = c - ry/2;
+      yViews[k].max = c + ry/2;
+    }
+  }
+
+  function zoomAbout(canvas, key, px, py, factor){
+    const layout = getPlotRect(canvas);
+    const { x0, y0, w, h } = layout;
+
+    const xr = xView.max - xView.min;
+    const yr = yViews[key].max - yViews[key].min;
+
+    // Clamp pointer to plot area
+    const fx = clamp((px - x0) / w, 0, 1);
+    const fy = clamp((py - y0) / h, 0, 1);
+
+    const xData = xView.min + fx * xr;
+    const yData = yViews[key].max - fy * yr;
+
+    const newXr = xr * factor;
+    const newYr = yr * factor;
+
+    xView.min = xData - fx * newXr;
+    xView.max = xView.min + newXr;
+
+    yViews[key].max = yData + fy * newYr;
+    yViews[key].min = yViews[key].max - newYr;
+
+    applyConstraints();
+  }
+
+  function panBy(canvas, key, dxPx, dyPx){
+    const layout = getPlotRect(canvas);
+    const { w, h } = layout;
+
+    const xr = xView.max - xView.min;
+    const yr = yViews[key].max - yViews[key].min;
+
+    const dxData = (dxPx / w) * xr;
+    const dyData = (dyPx / h) * yr;
+
+    // x: subtract to "drag the data"
+    xView.min -= dxData;
+    xView.max -= dxData;
+
+    // y: add because screen y increases downward
+    yViews[key].min += dyData;
+    yViews[key].max += dyData;
+
+    applyConstraints();
+  }
+
+  function attachInteractions(canvas, key){
+    const pointers = new Map();
+    let panStart = null;  // {x,y}
+    let startXView = null;
+    let startYView = null;
+
+    let pinchStart = null; // {dist, mid:{x,y}, xView:{}, yView:{}}
+
+    canvas.addEventListener("dblclick", (e) => {
+      // Reset shared x + this chart y to defaults
+      xView = { min: 0, max: 100 };
+      yViews[key] = defaultYFor(key);
+      render();
+    });
+
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const p = localPos(e, canvas);
+      const factor = Math.exp(e.deltaY * 0.001); // >1 zoom out
+      zoomAbout(canvas, key, p.x, p.y, factor);
+      render();
+    }, { passive:false });
+
+    canvas.addEventListener("pointerdown", (e) => {
+      canvas.setPointerCapture(e.pointerId);
+      const p = localPos(e, canvas);
+      pointers.set(e.pointerId, p);
+
+      if (pointers.size === 1){
+        panStart = p;
+        startXView = { ...xView };
+        startYView = { ...yViews[key] };
+      } else if (pointers.size === 2){
+        const pts = Array.from(pointers.values());
+        const dx = pts[0].x - pts[1].x;
+        const dy = pts[0].y - pts[1].y;
+        const dist = Math.hypot(dx, dy);
+        const mid = { x: (pts[0].x + pts[1].x)/2, y: (pts[0].y + pts[1].y)/2 };
+        pinchStart = {
+          dist,
+          mid,
+          xView: { ...xView },
+          yView: { ...yViews[key] }
+        };
+      }
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!pointers.has(e.pointerId)) return;
+      const p = localPos(e, canvas);
+      pointers.set(e.pointerId, p);
+
+      if (pointers.size === 1 && panStart && startXView && startYView){
+        // Restore baseline then apply delta (so pan is stable)
+        xView = { ...startXView };
+        yViews[key] = { ...startYView };
+
+        const dxPx = p.x - panStart.x;
+        const dyPx = p.y - panStart.y;
+        panBy(canvas, key, dxPx, dyPx);
+        render();
+      } else if (pointers.size === 2 && pinchStart){
+        const pts = Array.from(pointers.values());
+        const dx = pts[0].x - pts[1].x;
+        const dy = pts[0].y - pts[1].y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= 0) return;
+
+        // Start from pinch baseline
+        xView = { ...pinchStart.xView };
+        yViews[key] = { ...pinchStart.yView };
+
+        const mid = { x: (pts[0].x + pts[1].x)/2, y: (pts[0].y + pts[1].y)/2 };
+
+        // Pinch out (dist bigger) => zoom in => factor < 1
+        const factor = pinchStart.dist / dist;
+        zoomAbout(canvas, key, mid.x, mid.y, factor);
+        render();
+      }
+    });
+
+    function endPointer(e){
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinchStart = null;
+      if (pointers.size === 0){
+        panStart = null;
+        startXView = null;
+        startYView = null;
+      }
+    }
+    canvas.addEventListener("pointerup", endPointer);
+    canvas.addEventListener("pointercancel", endPointer);
+    canvas.addEventListener("pointerleave", endPointer);
+  }
+
+  // -------- Charts registry --------
+  const charts = [
+    { key:"delta", canvasId:"cDelta", legendId:"legendDelta" },
+    { key:"gamma", canvasId:"cGamma", legendId:"legendGamma" },
+    { key:"vega",  canvasId:"cVega",  legendId:"legendVega"  },
+    { key:"theta", canvasId:"cTheta", legendId:"legendTheta" },
+    { key:"rho",   canvasId:"cRho",   legendId:"legendRho"   },
+  ];
+
+  // attach interactions + resize rerender
+  const ro = new ResizeObserver(() => render());
+  for (const c of charts){
+    const canvas = document.getElementById(c.canvasId);
+    attachInteractions(canvas, c.key);
+    ro.observe(canvas);
+  }
+
+  // -------- Render --------
+  function render(){
+    ensureAtLeastOneCurve();
+
+    // update legends
+    for (const c of charts) setLegend(c.legendId);
+
+    // compute data
+    const curves = computeCurves();
+    renderReadout(curves);
+
+    // plot
+    const refs = { spot: state.spot, strike: state.strike };
+
+    for (const c of charts){
+      const canvas = document.getElementById(c.canvasId);
+
+      const series = [
+        {
+          name: "Call",
+          stroke: callColor,
+          visible: !!state.showCall,
+          data: curves.call[c.key],
+          markerY: curves.atSpot.call[c.key],
+        },
+        {
+          name: "Put",
+          stroke: putColor,
+          visible: !!state.showPut,
+          data: curves.put[c.key],
+          markerY: curves.atSpot.put[c.key],
+        }
+      ];
+
+      drawChart(canvas, series, xView, yViews[c.key], refs);
+    }
+  }
+
+  // initial
+  showCallEl.checked = state.showCall;
+  showPutEl.checked  = state.showPut;
+  vegaPer1pctEl.checked = state.vegaPer1pct;
+  rhoPer1pctEl.checked  = state.rhoPer1pct;
+  thetaPerDayEl.checked = state.thetaPerDay;
+
+  // Set yViews to unit-aware defaults at start (in case toggles change)
+  for (const k of Object.keys(yViews)){
+    yViews[k] = defaultYFor(k);
+  }
+  render();
+})();
 </script>
 </body>
 </html>
