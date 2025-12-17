@@ -354,7 +354,15 @@
         <canvas id="cTheta"></canvas>
       </div>
 
-      <div class="chart-card" style="grid-column: 1 / -1;">
+      <div class="chart-card">
+        <div class="chart-title">
+          <div class="name">Charm (∂Δ/∂t)</div>
+          <div class="legend" id="legendCharm"></div>
+        </div>
+        <canvas id="cCharm"></canvas>
+      </div>
+
+      <div class="chart-card">
         <div class="chart-title">
           <div class="name">Rho (∂Price/∂r)</div>
           <div class="legend" id="legendRho"></div>
@@ -413,7 +421,12 @@
       ? (K * T * disc * Nd2)
       : (-K * T * disc * Nnd2);
 
-    return { price, delta, gamma, vega, theta, rho };
+    const T32 = T * sqrtT;
+    // Charm (dDelta/dt): delta decay with the passage of time (calendar time),
+    // where t increases and T = time-to-expiry decreases. So Charm = ∂Δ/∂t = -∂Δ/∂T.
+    const charm = -nd1 * (((r + 0.5*sigma*sigma) * T - Math.log(S/K)) / (2 * sigma * T32));
+
+    return { price, delta, gamma, vega, theta, rho, charm };
   }
 
   // -------- Formatting / ticks --------
@@ -622,6 +635,7 @@
     gamma: { min:  0.00, max:  0.20 },
     vega:  { min:  0.00, max:  1.00 },  // per 1% vol by default
     theta: { min: -0.50, max:  0.20 },  // per day by default
+    charm: { min: -0.01, max:  0.01 },  // per day by default
     rho:   { min: -1.00, max:  1.00 },  // per 1% rate by default
   };
 
@@ -638,6 +652,10 @@
     if (key === "theta"){
       const mult = state.thetaPerDay ? 1 : 365;
       return { min: -0.50 * mult, max: 0.20 * mult };
+    }
+    if (key === "charm"){
+      const mult = state.thetaPerDay ? 1 : 365;
+      return { min: -0.01 * mult, max: 0.01 * mult };
     }
     if (key === "gamma") return { min: 0.00, max: 0.20 };
     if (key === "delta") return { min: -1.05, max: 1.05 };
@@ -822,8 +840,8 @@
     const unitTheta= state.thetaPerDay ? (1/365) : 1.0;
 
     const xs = new Array(N);
-    const call = { delta:[], gamma:[], vega:[], theta:[], rho:[] };
-    const put  = { delta:[], gamma:[], vega:[], theta:[], rho:[] };
+    const call = { delta:[], gamma:[], vega:[], theta:[], rho:[], charm:[] };
+    const put  = { delta:[], gamma:[], vega:[], theta:[], rho:[], charm:[] };
 
     for (let i=0;i<N;i++){
       const x = xMin + (xMax - xMin) * (i/(N-1));
@@ -838,12 +856,14 @@
       call.vega .push({x, y: gc.vega * unitVega});
       call.theta.push({x, y: gc.theta * unitTheta});
       call.rho  .push({x, y: gc.rho  * unitRho});
+      call.charm.push({x, y: gc.charm * unitTheta});
 
       put.delta.push({x, y: gp.delta});
       put.gamma.push({x, y: gp.gamma});
       put.vega .push({x, y: gp.vega * unitVega});
       put.theta.push({x, y: gp.theta * unitTheta});
       put.rho  .push({x, y: gp.rho  * unitRho});
+      put.charm.push({x, y: gp.charm * unitTheta});
     }
 
     const atSpotCall = bsGreeks(S0, K, T, sigma, r, true);
@@ -856,7 +876,8 @@
         gamma: atSpotCall.gamma,
         vega:  atSpotCall.vega * unitVega,
         theta: atSpotCall.theta * unitTheta,
-        rho:   atSpotCall.rho  * unitRho
+        rho:   atSpotCall.rho  * unitRho,
+        charm: atSpotCall.charm * unitTheta
       },
       put: {
         price: atSpotPut.price,
@@ -864,7 +885,8 @@
         gamma: atSpotPut.gamma,
         vega:  atSpotPut.vega * unitVega,
         theta: atSpotPut.theta * unitTheta,
-        rho:   atSpotPut.rho  * unitRho
+        rho:   atSpotPut.rho  * unitRho,
+        charm: atSpotPut.charm * unitTheta
       }
     };
 
@@ -888,17 +910,19 @@
     const vegaLabel = state.vegaPer1pct ? "Vega (/1%)" : "Vega (/1.00)";
     const rhoLabel  = state.rhoPer1pct  ? "Rho (/1%)"  : "Rho (/1.00)";
     const thetaLabel= state.thetaPerDay ? "Theta (/day)" : "Theta (/year)";
-    return { vegaLabel, rhoLabel, thetaLabel };
+    const charmLabel= state.thetaPerDay ? "Charm (/day)" : "Charm (/year)";
+    return { vegaLabel, rhoLabel, thetaLabel, charmLabel };
   }
 
   function renderReadout(curves){
     spotReadEl.textContent = fmt(state.spot);
     strikeReadEl.textContent = fmt(state.strike);
 
-    const { vegaLabel, rhoLabel, thetaLabel } = readoutLabels();
+    const { vegaLabel, rhoLabel, thetaLabel, charmLabel } = readoutLabels();
     const metrics = [
       ["Price", "price"],
       ["Delta", "delta"],
+      [charmLabel, "charm"],
       ["Gamma", "gamma"],
       [vegaLabel, "vega"],
       [thetaLabel, "theta"],
@@ -1135,6 +1159,7 @@
     { key:"gamma", canvasId:"cGamma", legendId:"legendGamma" },
     { key:"vega",  canvasId:"cVega",  legendId:"legendVega"  },
     { key:"theta", canvasId:"cTheta", legendId:"legendTheta" },
+    { key:"charm", canvasId:"cCharm", legendId:"legendCharm" },
     { key:"rho",   canvasId:"cRho",   legendId:"legendRho"   },
   ];
 
